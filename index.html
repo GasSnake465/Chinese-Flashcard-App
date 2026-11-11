@@ -56,7 +56,7 @@
       transform-style: preserve-3d;
       border-radius: 1rem;
       box-shadow: var(--shadow);
-      background-color: var(--card-bg);
+      background-color: #ffffff;
     }
 
     .flashcard.flipped { transform: rotateY(180deg); }
@@ -221,8 +221,8 @@
   <div class="modal" id="deckModal">
     <div class="modal-content">
       <h2>Deck Manager</h2>
-      <p>Add new words (Format: <code>Hanzi TAB Pinyin TAB English</code>):</p>
-      <textarea id="importInput" placeholder="你&#9;nǐ&#9;you"></textarea>
+      <p>Add new words (Format: <code>Hanzi [TAB] Pinyin [TAB] English</code>):</p>
+      <textarea id="importInput" placeholder="你	nǐ	you"></textarea>
       <button class="btn-primary" onclick="importWords()">Add Words</button>
       <button onclick="exportDeck()">Export JSON Deck</button>
       <button onclick="closeDeckManager()">Close</button>
@@ -248,12 +248,18 @@
       { id: 15, char: "您", pinyin: "nín", english: "you (polite singular)" }
     ];
 
-    let fullDeck = JSON.parse(localStorage.getItem('zh_deck')) || defaultVocab;
+    let fullDeck = [];
+    try {
+      const stored = localStorage.getItem('zh_deck');
+      fullDeck = stored ? JSON.parse(stored) : defaultVocab;
+    } catch (e) {
+      fullDeck = defaultVocab;
+    }
+
     let activeDeck = [];
     let currentIndex = 0;
     let cardMode = 'zh-en';
 
-    // Pre-load speech synth voices for mobile engines
     if ('speechSynthesis' in window) {
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.getVoices();
@@ -290,7 +296,7 @@
       const back = document.getElementById('cardBack');
       const progress = document.getElementById('progress');
 
-      if (activeDeck.length === 0) {
+      if (!activeDeck || activeDeck.length === 0) {
         front.innerHTML = "<p>No cards match the selected filter!</p>";
         back.innerHTML = "";
         progress.innerText = "0 / 0";
@@ -360,7 +366,11 @@
     }
 
     function saveDeck() {
-      localStorage.setItem('zh_deck', JSON.stringify(fullDeck));
+      try {
+        localStorage.setItem('zh_deck', JSON.stringify(fullDeck));
+      } catch (e) {
+        console.warn("Storage save failed:", e);
+      }
     }
 
     function speakWord(text) {
@@ -372,9 +382,7 @@
 
         const voices = window.speechSynthesis.getVoices();
         const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('cmn'));
-        if (zhVoice) {
-          utterance.voice = zhVoice;
-        }
+        if (zhVoice) utterance.voice = zhVoice;
 
         window.speechSynthesis.speak(utterance);
       } else {
@@ -413,3 +421,11 @@
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
+    }
+
+    window.onload = function() {
+      initSession();
+    };
+  </script>
+</body>
+</html>
