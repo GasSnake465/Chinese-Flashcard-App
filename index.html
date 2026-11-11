@@ -56,7 +56,7 @@
       transform-style: preserve-3d;
       border-radius: 1rem;
       box-shadow: var(--shadow);
-      background: var(--card-bg);
+      background-color: var(--card-bg);
     }
 
     .flashcard.flipped { transform: rotateY(180deg); }
@@ -67,6 +67,7 @@
       position: absolute;
       width: 100%;
       height: 100%;
+      -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
       display: flex;
       flex-direction: column;
@@ -76,9 +77,17 @@
       border-radius: 1rem;
       border: 1px solid var(--border);
       text-align: center;
+      background-color: #ffffff;
     }
 
-    .card-back { transform: rotateY(180deg); }
+    .card-front {
+      z-index: 2;
+      transform: rotateY(0deg);
+    }
+
+    .card-back {
+      transform: rotateY(180deg);
+    }
 
     .star-btn {
       position: absolute;
@@ -99,12 +108,13 @@
       background: #f1f5f9;
       border: none;
       border-radius: 50%;
-      width: 40px;
-      height: 40px;
+      width: 44px;
+      height: 44px;
       display: flex;
       align-items: center;
       justify-content: center;
       font-size: 1.2rem;
+      z-index: 5;
     }
 
     .char { font-size: 3.5rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text); }
@@ -243,6 +253,13 @@
     let currentIndex = 0;
     let cardMode = 'zh-en';
 
+    // Pre-load speech synth voices for mobile engines
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+
     function initSession() {
       const filter = document.getElementById('filterSelect').value;
       let filtered = fullDeck.filter(card => {
@@ -351,14 +368,18 @@
         window.speechSynthesis.cancel();
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'zh-CN';
+        utterance.rate = 0.85;
+
         const voices = window.speechSynthesis.getVoices();
-        if (voices.some(v => v.lang.includes('zh'))) {
-          window.speechSynthesis.speak(utterance);
-          return;
+        const zhVoice = voices.find(v => v.lang.includes('zh') || v.lang.includes('cmn'));
+        if (zhVoice) {
+          utterance.voice = zhVoice;
         }
+
+        window.speechSynthesis.speak(utterance);
+      } else {
+        alert("Text-to-speech is not supported on this browser.");
       }
-      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=zh-CN&client=tw-ob`);
-      audio.play().catch(e => console.warn(e));
     }
 
     function openDeckManager() { document.getElementById('deckModal').style.display = 'flex'; }
@@ -392,9 +413,3 @@
       document.body.appendChild(downloadAnchor);
       downloadAnchor.click();
       downloadAnchor.remove();
-    }
-
-    initSession();
-  </script>
-</body>
-</html>
