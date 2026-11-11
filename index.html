@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chinese Flashcard App</title>
+  <style>
+    :root {
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --success: #16a34a;
+      --warning: #eab308;
+      --danger: #dc2626;
+      --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 1rem; }
+    header { width: 100%; max-width: 600px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+    h1 { font-size: 1.25rem; color: var(--primary); }
+    .controls-top { display: flex; gap: 0.5rem; width: 100%; max-width: 600px; flex-wrap: wrap; margin-bottom: 1rem; }
+    
+    select, button {
+      padding: 0.5rem 0.75rem;
+      border: 1px solid var(--border);
+      border-radius: 0.5rem;
+      background: var(--card-bg);
+      color: var(--text);
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    button:hover { background: #f1f5f9; }
+    .btn-primary { background: var(--primary); color: white; border: none; }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .flashcard-container {
+      width: 100%;
+      max-width: 600px;
+      height: 320px;
+      perspective: 1000px;
+      cursor: pointer;
+      margin-bottom: 1rem;
+    }
+
+    .flashcard {
+      width: 100%;
+      height: 100%;
+      position: relative;
+      transform-style: preserve-3d;
+      border-radius: 1rem;
+      box-shadow: var(--shadow);
+      background: var(--card-bg);
+    }
+
+    .flashcard.flipped { transform: rotateY(180deg); }
+    .flashcard.no-anim { transition: none !important; }
+    .flashcard.anim { transition: transform 0.4s ease; }
+
+    .card-face {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      backface-visibility: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .card-back { transform: rotateY(180deg); }
+
+    .star-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #cbd5e1;
+    }
+    .star-btn.active { color: var(--warning); }
+
+    .audio-btn {
+      position: absolute;
+      bottom: 1rem;
+      right: 1rem;
+      background: #f1f5f9;
+      border: none;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+    }
+
+    .char { font-size: 3.5rem; font-weight: bold; margin-bottom: 0.5rem; color: var(--text); }
+    .pinyin { font-size: 1.5rem; color: var(--primary); margin-bottom: 0.5rem; }
+    .english { font-size: 1.5rem; font-weight: 500; color: var(--text); }
+
+    .nav-controls {
+      display: flex;
+      gap: 1rem;
+      width: 100%;
+      max-width: 600px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .status-btns {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      max-width: 600px;
+      margin-bottom: 1rem;
+    }
+
+    .status-btns button { flex: 1; padding: 0.75rem; font-weight: 600; }
+    .btn-learned { border-color: var(--success); color: var(--success); }
+    .btn-learned:hover { background: #f0fdf4; }
+    .btn-review { border-color: var(--danger); color: var(--danger); }
+    .btn-review:hover { background: #fef2f2; }
+
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.5);
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 100;
+    }
+    .modal-content {
+      background: white;
+      padding: 1.5rem;
+      border-radius: 1rem;
+      max-width: 500px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    textarea { width: 100%; height: 150px; padding: 0.5rem; border: 1px solid var(--border); border-radius: 0.5rem; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🇨🇳 Chinese Flashcards</h1>
+    <button onclick="openDeckManager()">⚙️ Deck Manager</button>
+  </header>
+
+  <div class="controls-top">
+    <select id="modeSelect" onchange="setMode(this.value)">
+      <option value="zh-en">ZH → EN</option>
+      <option value="en-zh">EN → ZH</option>
+      <option value="mix">🔀 Mix</option>
+    </select>
+
+    <select id="filterSelect" onchange="applyFilter()">
+      <option value="all">All Cards</option>
+      <option value="starred">⭐ Starred</option>
+      <option value="review">⚠️ Needs Review</option>
+      <option value="learned">✅ Learned</option>
+    </select>
+
+    <select id="sessionSizeSelect" onchange="initSession()">
+      <option value="5">5 Cards</option>
+      <option value="10">10 Cards</option>
+      <option value="20" selected>20 Cards</option>
+      <option value="50">50 Cards</option>
+      <option value="all">Full Deck</option>
+    </select>
+
+    <button onclick="initSession()">🔀 New Batch</button>
+  </div>
+
+  <div class="flashcard-container" onclick="flipCard()">
+    <div class="flashcard no-anim" id="card">
+      <div class="card-face card-front" id="cardFront"></div>
+      <div class="card-face card-back" id="cardBack"></div>
+    </div>
+  </div>
+
+  <div class="nav-controls">
+    <button onclick="prevCard()">⬅️ Prev</button>
+    <span id="progress">0 / 0</span>
+    <button onclick="nextCard()">Next ➡️</button>
+  </div>
+
+  <div class="status-btns">
+    <button class="btn-review" onclick="markStatus('review')">⚠️ Needs Review</button>
+    <button class="btn-learned" onclick="markStatus('learned')">✅ Learned</button>
+  </div>
+
+  <div class="modal" id="deckModal">
+    <div class="modal-content">
+      <h2>Deck Manager</h2>
+      <p>Add new words (Format: <code>Hanzi TAB Pinyin TAB English</code>):</p>
+      <textarea id="importInput" placeholder="你&#9;nǐ&#9;you"></textarea>
+      <button class="btn-primary" onclick="importWords()">Add Words</button>
+      <button onclick="exportDeck()">Export JSON Deck</button>
+      <button onclick="closeDeckManager()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const defaultVocab = [
+      { id: 1, char: "你", pinyin: "nǐ", english: "you (singular)" },
+      { id: 2, char: "好", pinyin: "hǎo", english: "good, well" },
+      { id: 3, char: "我", pinyin: "wǒ", english: "I, me" },
+      { id: 4, char: "叫", pinyin: "jiào", english: "to be called, to be named" },
+      { id: 5, char: "什么", pinyin: "shénme", english: "what" },
+      { id: 6, char: "名字", pinyin: "míngzi", english: "name" },
+      { id: 7, char: "姓", pinyin: "xìng", english: "to be surnamed; family name" },
+      { id: 8, char: "他", pinyin: "tā", english: "he, him" },
+      { id: 9, char: "她", pinyin: "tā", english: "she, her" },
+      { id: 10, char: "这", pinyin: "zhè", english: "this" },
+      { id: 11, char: "是", pinyin: "shì", english: "to be (am, is, are)" },
+      { id: 12, char: "中国人", pinyin: "Zhōngguórén", english: "Chinese (person/people)" },
+      { id: 13, char: "中国", pinyin: "Zhōngguó", english: "China" },
+      { id: 14, char: "人", pinyin: "rén", english: "person, people" },
+      { id: 15, char: "您", pinyin: "nín", english: "you (polite singular)" }
+    ];
+
+    let fullDeck = JSON.parse(localStorage.getItem('zh_deck')) || defaultVocab;
+    let activeDeck = [];
+    let currentIndex = 0;
+    let cardMode = 'zh-en';
+
+    function initSession() {
+      const filter = document.getElementById('filterSelect').value;
+      let filtered = fullDeck.filter(card => {
+        if (filter === 'starred') return card.starred;
+        if (filter === 'review') return card.status === 'review';
+        if (filter === 'learned') return card.status === 'learned';
+        return true;
+      });
+
+      filtered.sort(() => Math.random() - 0.5);
+
+      const sessionSize = document.getElementById('sessionSizeSelect').value;
+      if (sessionSize !== 'all') {
+        filtered = filtered.slice(0, parseInt(sessionSize));
+      }
+
+      activeDeck = filtered;
+      currentIndex = 0;
+      renderCard();
+    }
+
+    function renderCard() {
+      const cardElem = document.getElementById('card');
+      cardElem.classList.add('no-anim');
+      cardElem.classList.remove('anim', 'flipped');
+
+      const front = document.getElementById('cardFront');
+      const back = document.getElementById('cardBack');
+      const progress = document.getElementById('progress');
+
+      if (activeDeck.length === 0) {
+        front.innerHTML = "<p>No cards match the selected filter!</p>";
+        back.innerHTML = "";
+        progress.innerText = "0 / 0";
+        return;
+      }
+
+      const item = activeDeck[currentIndex];
+      progress.innerText = `${currentIndex + 1} / ${activeDeck.length}`;
+
+      const isZhFront = cardMode === 'zh-en' || (cardMode === 'mix' && Math.random() > 0.5);
+
+      const starHTML = `<button class="star-btn ${item.starred ? 'active' : ''}" onclick="event.stopPropagation(); toggleStar(${item.id})">★</button>`;
+      const audioHTML = `<button class="audio-btn" onclick="event.stopPropagation(); speakWord('${item.char}')">🔊</button>`;
+
+      if (isZhFront) {
+        front.innerHTML = `${starHTML}<div class="char">${item.char}</div><div class="pinyin">${item.pinyin}</div>${audioHTML}`;
+        back.innerHTML = `${starHTML}<div class="english">${item.english}</div>`;
+      } else {
+        front.innerHTML = `${starHTML}<div class="english">${item.english}</div>`;
+        back.innerHTML = `${starHTML}<div class="char">${item.char}</div><div class="pinyin">${item.pinyin}</div>${audioHTML}`;
+      }
+    }
+
+    function flipCard() {
+      const cardElem = document.getElementById('card');
+      cardElem.classList.remove('no-anim');
+      cardElem.classList.add('anim');
+      cardElem.classList.toggle('flipped');
+    }
+
+    function nextCard() {
+      if (activeDeck.length === 0) return;
+      currentIndex = (currentIndex + 1) % activeDeck.length;
+      renderCard();
+    }
+
+    function prevCard() {
+      if (activeDeck.length === 0) return;
+      currentIndex = (currentIndex - 1 + activeDeck.length) % activeDeck.length;
+      renderCard();
+    }
+
+    function setMode(mode) {
+      cardMode = mode;
+      renderCard();
+    }
+
+    function applyFilter() {
+      initSession();
+    }
+
+    function toggleStar(id) {
+      const card = fullDeck.find(c => c.id === id);
+      if (card) {
+        card.starred = !card.starred;
+        saveDeck();
+        renderCard();
+      }
+    }
+
+    function markStatus(status) {
+      if (activeDeck.length === 0) return;
+      const card = activeDeck[currentIndex];
+      card.status = status;
+      saveDeck();
+      nextCard();
+    }
+
+    function saveDeck() {
+      localStorage.setItem('zh_deck', JSON.stringify(fullDeck));
+    }
+
+    function speakWord(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'zh-CN';
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.some(v => v.lang.includes('zh'))) {
+          window.speechSynthesis.speak(utterance);
+          return;
+        }
+      }
+      const audio = new Audio(`https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=zh-CN&client=tw-ob`);
+      audio.play().catch(e => console.warn(e));
+    }
+
+    function openDeckManager() { document.getElementById('deckModal').style.display = 'flex'; }
+    function closeDeckManager() { document.getElementById('deckModal').style.display = 'none'; }
+
+    function importWords() {
+      const text = document.getElementById('importInput').value.trim();
+      if (!text) return;
+      const lines = text.split('\n');
+      lines.forEach(line => {
+        const parts = line.split('\t');
+        if (parts.length >= 3) {
+          fullDeck.push({
+            id: Date.now() + Math.random(),
+            char: parts[0].trim(),
+            pinyin: parts[1].trim(),
+            english: parts[2].trim()
+          });
+        }
+      });
+      saveDeck();
+      initSession();
+      closeDeckManager();
+    }
+
+    function exportDeck() {
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullDeck));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "chinese_deck.json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
+    initSession();
+  </script>
+</body>
+</html>
